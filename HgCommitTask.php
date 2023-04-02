@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Utilise Mercurial from within Phing.
  *
@@ -11,54 +12,80 @@
  * @link     https://github.com/kenguest/Phing-HG
  */
 
-namespace Phing\Task\Ext;
+namespace Phing\Task\Ext\Hg;
 
 use Phing\Exception\BuildException;
 use Phing\Project;
 
 /**
- * Integration/Wrapper for hg update
+ * Integration/Wrapper for hg commit
  *
  * @category Tasks
  * @package  phing.tasks.ext.hg
  * @author   Ken Guest <kguest@php.net>
  * @license  LGPL (see http://www.gnu.org/licenses/lgpl.html)
- * @link     HgPullTask.php
+ * @link     HgCommitTask.php
  */
-class HgPullTask extends HgBaseTask
+class HgCommitTask extends HgBaseTask
 {
     /**
-     * Path to target directory
+     * Message to be recorded against commit.
      *
      * @var string
      */
-    protected $targetPath;
+    protected $message = '';
 
     /**
-     * Set path to source repo
+     * Set message to be used.
      *
-     * @param string $targetPath Path to repository used as source
+     * @param string $message Message to use
      *
      * @return void
      */
-    public function setTargetPath($targetPath)
+    public function setMessage($message)
     {
-        $this->targetPath = $targetPath;
+        $this->message = $message;
+    }
+
+    /**
+     * Get message to apply for the commit.
+     *
+     * @return string
+     */
+    public function getMessage()
+    {
+        return $this->message;
     }
 
     /**
      * The main entry point method.
      *
-     * @throws BuildException
+     * @throws BuildException If message is not set
+     * @throws BuildException If error occurs during commit
      * @return void
      */
     public function main()
     {
-        $clone = $this->getFactoryInstance('pull');
-        $clone->setInsecure($this->getInsecure());
-        $clone->setQuiet($this->getQuiet());
+        $message = $this->getMessage();
+        if ($message === '') {
+            throw new BuildException('"message" is a required parameter');
+        }
 
-        $cwd = getcwd();
+        $user = $this->getUser();
+
+        $clone = $this->getFactoryInstance('commit');
+        $msg = sprintf("Commit: '%s'", $message);
+        $this->log($msg, Project::MSG_INFO);
+        $clone->setQuiet($this->getQuiet());
+        $clone->setMessage($message);
+
+        if (trim($user) === "") {
+            throw new BuildException('"user" parameter can not be set to ""');
+        }
+        if ($user !== null) {
+            $clone->setUser($user);
+            $this->log("Commit: user = '$user'", Project::MSG_VERBOSE);
+        }
 
         if ($this->repository === '') {
             $project = $this->getProject();
@@ -66,7 +93,9 @@ class HgPullTask extends HgBaseTask
         } else {
             $dir = $this->repository;
         }
-        $this->checkRepositoryIsDirAndExists($dir);
+        $this->log('DIR:' . $dir, Project::MSG_INFO);
+        $this->log('REPO: ' . $this->repository, Project::MSG_INFO);
+        $cwd = getcwd();
         chdir($dir);
 
         try {
@@ -77,6 +106,7 @@ class HgPullTask extends HgBaseTask
             }
         } catch (\Exception $ex) {
             $msg = $ex->getMessage();
+            $this->log("Exception: $msg", Project::MSG_INFO);
             $p = strpos($msg, 'hg returned:');
             if ($p !== false) {
                 $msg = substr($msg, $p + 13);

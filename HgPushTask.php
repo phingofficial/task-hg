@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Utilise Mercurial from within Phing.
  *
@@ -11,92 +12,73 @@
  * @link     https://github.com/kenguest/Phing-HG
  */
 
-namespace Phing\Task\Ext;
+namespace Phing\Task\Ext\Hg;
 
 use Phing\Exception\BuildException;
 use Phing\Project;
+use Phing\Util\StringHelper;
 
 /**
- * Integration/Wrapper for hg commit
+ * Integration/Wrapper for hg push
  *
  * @category Tasks
  * @package  phing.tasks.ext.hg
  * @author   Ken Guest <kguest@php.net>
  * @license  LGPL (see http://www.gnu.org/licenses/lgpl.html)
- * @link     HgCommitTask.php
+ * @link     HgPushTask.php
  */
-class HgCommitTask extends HgBaseTask
+class HgPushTask extends HgBaseTask
 {
     /**
-     * Message to be recorded against commit.
+     * Whether the task should halt if an error occurs.
      *
-     * @var string
+     * @var bool
      */
-    protected $message = '';
+    protected $haltonerror = false;
 
     /**
-     * Set message to be used.
+     * Set haltonerror attribute.
      *
-     * @param string $message Message to use
+     * @param string $halt 'yes', or '1' to halt.
      *
      * @return void
      */
-    public function setMessage($message)
+    public function setHaltonerror($halt)
     {
-        $this->message = $message;
+        $this->haltonerror = StringHelper::booleanValue($halt);
     }
 
     /**
-     * Get message to apply for the commit.
+     * Return haltonerror value.
      *
-     * @return string
+     * @return bool
      */
-    public function getMessage()
+    public function getHaltonerror()
     {
-        return $this->message;
+        return $this->haltonerror;
     }
 
     /**
      * The main entry point method.
      *
-     * @throws BuildException If message is not set
-     * @throws BuildException If error occurs during commit
+     * @throws BuildException
      * @return void
      */
     public function main()
     {
-        $message = $this->getMessage();
-        if ($message === '') {
-            throw new BuildException('"message" is a required parameter');
-        }
-
-        $user = $this->getUser();
-
-        $clone = $this->getFactoryInstance('commit');
-        $msg = sprintf("Commit: '%s'", $message);
-        $this->log($msg, Project::MSG_INFO);
+        $clone = $this->getFactoryInstance('push');
+        $this->log('Pushing...', Project::MSG_INFO);
+        $clone->setInsecure($this->getInsecure());
         $clone->setQuiet($this->getQuiet());
-        $clone->setMessage($message);
-
-        if (trim($user) === "") {
-            throw new BuildException('"user" parameter can not be set to ""');
-        }
-        if ($user !== null) {
-            $clone->setUser($user);
-            $this->log("Commit: user = '$user'", Project::MSG_VERBOSE);
-        }
-
         if ($this->repository === '') {
             $project = $this->getProject();
             $dir = $project->getProperty('application.startdir');
         } else {
             $dir = $this->repository;
         }
-        $this->log('DIR:' . $dir, Project::MSG_INFO);
-        $this->log('REPO: ' . $this->repository, Project::MSG_INFO);
         $cwd = getcwd();
+        $this->checkRepositoryIsDirAndExists($dir);
         chdir($dir);
-
         try {
             $this->log("Executing: " . $clone->asString(), Project::MSG_INFO);
             $output = $clone->execute();
@@ -105,13 +87,15 @@ class HgCommitTask extends HgBaseTask
             }
         } catch (\Exception $ex) {
             $msg = $ex->getMessage();
-            $this->log("Exception: $msg", Project::MSG_INFO);
             $p = strpos($msg, 'hg returned:');
             if ($p !== false) {
                 $msg = substr($msg, $p + 13);
             }
             chdir($cwd);
-            throw new BuildException($msg);
+            if ($this->haltonerror) {
+                throw new BuildException($msg);
+            }
+            $this->log($msg, Project::MSG_ERR);
         }
         chdir($cwd);
     }

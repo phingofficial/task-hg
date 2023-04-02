@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Utilise Mercurial from within Phing.
  *
@@ -11,7 +12,7 @@
  * @link     https://github.com/kenguest/Phing-HG
  */
 
-namespace Phing\Task\Ext;
+namespace Phing\Task\Ext\Hg;
 
 use Phing\Exception\BuildException;
 use Phing\Project;
@@ -81,8 +82,6 @@ class HgLogTask extends HgBaseTask
      * Template/log format.
      *
      * @param string $format Log format
-     *
-     * @return string
      */
     public function setFormat($format)
     {

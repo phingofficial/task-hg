@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Utilise Mercurial from within Phing.
  *
@@ -11,72 +12,62 @@
  * @link     https://github.com/kenguest/Phing-HG
  */
 
-namespace Phing\Task\Ext;
+namespace Phing\Task\Ext\Hg;
 
 use Phing\Exception\BuildException;
 use Phing\Project;
-use Phing\Util\StringHelper;
 
 /**
- * Integration/Wrapper for hg push
+ * Integration/Wrapper for hg init
  *
  * @category Tasks
  * @package  phing.tasks.ext.hg
  * @author   Ken Guest <kguest@php.net>
  * @license  LGPL (see http://www.gnu.org/licenses/lgpl.html)
- * @link     HgPushTask.php
+ * @link     HgInitTask.php
  */
-class HgPushTask extends HgBaseTask
+class HgInitTask extends HgBaseTask
 {
     /**
-     * Whether the task should halt if an error occurs.
+     * Path to target directory
      *
-     * @var bool
+     * @var string
      */
-    protected $haltonerror = false;
+    protected $targetPath;
 
     /**
-     * Set haltonerror attribute.
+     * Set path to source repo
      *
-     * @param string $halt 'yes', or '1' to halt.
+     * @param string $targetPath Path to repository used as source
      *
      * @return void
      */
-    public function setHaltonerror($halt)
+    public function setTargetPath($targetPath)
     {
-        $this->haltonerror = StringHelper::booleanValue($halt);
+        $this->targetPath = $targetPath;
     }
 
     /**
-     * Return haltonerror value.
+     * Main entry point for this task.
      *
-     * @return bool
-     */
-    public function getHaltonerror()
-    {
-        return $this->haltonerror;
-    }
-
-    /**
-     * The main entry point method.
-     *
-     * @throws BuildException
      * @return void
      */
     public function main()
     {
-        $clone = $this->getFactoryInstance('push');
-        $this->log('Pushing...', Project::MSG_INFO);
-        $clone->setInsecure($this->getInsecure());
+        $clone = $this->getFactoryInstance('init');
+        $this->log('Initializing', Project::MSG_INFO);
         $clone->setQuiet($this->getQuiet());
+        $clone->setInsecure($this->getInsecure());
+        $cwd = getcwd();
         if ($this->repository === '') {
             $project = $this->getProject();
             $dir = $project->getProperty('application.startdir');
         } else {
             $dir = $this->repository;
         }
-        $cwd = getcwd();
-        $this->checkRepositoryIsDirAndExists($dir);
+        if (!is_dir($dir)) {
+            throw new BuildException("$dir is not a directory.");
+        }
         chdir($dir);
         try {
             $this->log("Executing: " . $clone->asString(), Project::MSG_INFO);
@@ -91,10 +82,7 @@ class HgPushTask extends HgBaseTask
                 $msg = substr($msg, $p + 13);
             }
             chdir($cwd);
-            if ($this->haltonerror) {
-                throw new BuildException($msg);
-            }
-            $this->log($msg, Project::MSG_ERR);
+            throw new BuildException($msg);
         }
         chdir($cwd);
     }

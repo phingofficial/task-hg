@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Utilise Mercurial from within Phing.
  *
@@ -11,21 +12,21 @@
  * @link     https://github.com/kenguest/Phing-HG
  */
 
-namespace Phing\Task\Ext;
+namespace Phing\Task\Ext\Hg;
 
 use Phing\Exception\BuildException;
 use Phing\Project;
 
 /**
- * Integration/Wrapper for hg init
+ * Integration/Wrapper for hg update
  *
  * @category Tasks
  * @package  phing.tasks.ext.hg
  * @author   Ken Guest <kguest@php.net>
  * @license  LGPL (see http://www.gnu.org/licenses/lgpl.html)
- * @link     HgInitTask.php
+ * @link     HgPullTask.php
  */
-class HgInitTask extends HgBaseTask
+class HgPullTask extends HgBaseTask
 {
     /**
      * Path to target directory
@@ -47,27 +48,28 @@ class HgInitTask extends HgBaseTask
     }
 
     /**
-     * Main entry point for this task.
+     * The main entry point method.
      *
+     * @throws BuildException
      * @return void
      */
     public function main()
     {
-        $clone = $this->getFactoryInstance('init');
-        $this->log('Initializing', Project::MSG_INFO);
-        $clone->setQuiet($this->getQuiet());
+        $clone = $this->getFactoryInstance('pull');
         $clone->setInsecure($this->getInsecure());
+        $clone->setQuiet($this->getQuiet());
+
         $cwd = getcwd();
+
         if ($this->repository === '') {
             $project = $this->getProject();
             $dir = $project->getProperty('application.startdir');
         } else {
             $dir = $this->repository;
         }
-        if (!is_dir($dir)) {
-            throw new BuildException("$dir is not a directory.");
-        }
+        $this->checkRepositoryIsDirAndExists($dir);
         chdir($dir);
+
         try {
             $this->log("Executing: " . $clone->asString(), Project::MSG_INFO);
             $output = $clone->execute();
